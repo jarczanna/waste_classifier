@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template_string
 import numpy as np
 from PIL import Image
 import io
-import tflite_runtime.interpreter as tflite
+import tensorflow.lite as tflite
 
 MODEL_PATH = "waste_classifier.tflite"
 CLASS_NAMES = ["Organic", "Recyclable"]

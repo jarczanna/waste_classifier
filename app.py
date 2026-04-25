@@ -7,7 +7,7 @@ import io
 from PIL import Image
 
 app = Flask(__name__)
-model = load_model("waste_classifier.h5")
+model = load_model("waste_classifier.tflite")
 CLASS_NAMES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
 
 @app.route("/predict", methods=["POST"])

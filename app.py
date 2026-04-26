@@ -72,16 +72,16 @@ HTML_PAGE = """
     </style>
 </head>
 <body>
-    <h1>Segregacja Odpadow AI</h1>
-    <p class="subtitle">Wrzuc zdjecie odpadu - AI powie Ci do ktorego kosza</p>
+    <h1>Segregacja Odpadów</h1>
+    <p class="subtitle">Wrzuć zdjecie odpadu - AI powie Ci do ktorego kosza go wyrzucić</p>
 
     <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
         <div class="upload-icon">📸</div>
-        <p>Kliknij lub przeciagnij zdjecie tutaj</p>
+        <p>Kliknij lub przeciągnij zdjęcie tutaj</p>
     </div>
     <input type="file" id="fileInput" accept="image/*">
 
-    <div class="loading" id="loading">Analizuje zdjecie...</div>
+    <div class="loading" id="loading">Analizuję zdjęcie...</div>
 
     <div class="result" id="result">
         <img class="preview-img" id="preview">

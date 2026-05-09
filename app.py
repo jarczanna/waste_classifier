@@ -6,7 +6,6 @@ import os
 import requests as http_requests
 from datetime import datetime
 import tensorflow.lite as tflite
-import cv2
 
 IMG_SIZE = 224
 
@@ -64,20 +63,8 @@ def supabase_read():
 
 def prepare_image(file):
     img = Image.open(file).convert("RGB")
-    img_np = np.array(img)
-
-    # Convert to grayscale and create mask
-    gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-    _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-    # Apply mask - set background to white
-    white_bg = np.full_like(img_np, 255)
-    mask_3ch = np.stack([mask, mask, mask], axis=-1) // 255
-    result = img_np * mask_3ch + white_bg * (1 - mask_3ch)
-
-    img_clean = Image.fromarray(result.astype(np.uint8))
-    img_clean = img_clean.resize((IMG_SIZE, IMG_SIZE))
-    img_array = np.array(img_clean, dtype=np.float32) / 255.0
+    img = img.resize((IMG_SIZE, IMG_SIZE))
+    img_array = np.array(img, dtype=np.float32) / 255.0
     return np.expand_dims(img_array, axis=0)
 
 def run_6class(img_array):

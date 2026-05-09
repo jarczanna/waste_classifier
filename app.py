@@ -3,9 +3,10 @@ import numpy as np
 from PIL import Image
 import io
 import os
-import requests
+import requests as http_requests
 from datetime import datetime
 import tensorflow.lite as tflite
+from rembg import remove
 
 IMG_SIZE = 224
 
@@ -23,37 +24,38 @@ interpreter_2.allocate_tensors()
 input_2 = interpreter_2.get_input_details()
 output_2 = interpreter_2.get_output_details()
 
-# Supabase config
+# Supabase
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://psoynddgcmfxmbzigmwf.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_Fpy3QYbMq30aD-aCtMzGPg_Vou1y5BE")
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
 
 def supabase_insert(data):
     try:
-        r = requests.post(
-            f"{SUPABASE_URL}/rest/v1/predictions",
-            json=data,
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=minimal"
-            },
-            timeout=5
-        )
-        return r.status_code < 300
+        r = http_requests.post(f"{SUPABASE_URL}/rest/v1/predictions", json=data, headers=HEADERS, timeout=5)
+        if r.status_code < 300:
+            result = r.json()
+            if result and len(result) > 0:
+                return result[0].get("id")
+        return None
     except:
-        return False
+        return None
+
+def supabase_update(record_id, data):
+    try:
+        h = dict(HEADERS)
+        h["Prefer"] = "return=minimal"
+        http_requests.patch(f"{SUPABASE_URL}/rest/v1/predictions?id=eq.{record_id}", json=data, headers=h, timeout=5)
+    except:
+        pass
 
 def supabase_read():
     try:
-        r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/predictions?order=timestamp.desc&limit=100",
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}"
-            },
-            timeout=5
-        )
+        r = http_requests.get(f"{SUPABASE_URL}/rest/v1/predictions?order=timestamp.desc&limit=100", headers=HEADERS, timeout=5)
         if r.status_code < 300:
             return r.json()
         return []
@@ -62,8 +64,14 @@ def supabase_read():
 
 def prepare_image(file):
     img = Image.open(file).convert("RGB")
-    img = img.resize((IMG_SIZE, IMG_SIZE))
-    img_array = np.array(img, dtype=np.float32) / 255.0
+    # Remove background
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+    removed = remove(img_bytes.getvalue())
+    img_no_bg = Image.open(io.BytesIO(removed)).convert("RGB")
+    img_no_bg = img_no_bg.resize((IMG_SIZE, IMG_SIZE))
+    img_array = np.array(img_no_bg, dtype=np.float32) / 255.0
     return np.expand_dims(img_array, axis=0)
 
 def run_6class(img_array):
@@ -140,6 +148,59 @@ HTML_PAGE = """
         }
         .bin-icon { font-size: 2rem; margin-bottom: 8px; }
 
+        /* Feedback */
+        .feedback-section { margin-top: 20px; }
+        .feedback-question { color: #aaa; font-size: 0.95rem; margin-bottom: 12px; }
+        .feedback-btns { display: flex; gap: 12px; justify-content: center; }
+        .btn-correct, .btn-wrong {
+            padding: 10px 24px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn-correct { background: #2e7d32; color: white; }
+        .btn-correct:hover { background: #388e3c; }
+        .btn-wrong { background: #c62828; color: white; }
+        .btn-wrong:hover { background: #d32f2f; }
+
+        .correction-section {
+            display: none;
+            margin-top: 16px;
+        }
+        .correction-section.show { display: block; }
+        .correction-label { color: #aaa; font-size: 0.9rem; margin-bottom: 10px; }
+        .correction-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 8px;
+        }
+        .correction-btn {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #4caf5050;
+            background: #1a2e1a;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .correction-btn:hover { background: #4caf5030; border-color: #4caf50; }
+
+        .feedback-thanks {
+            display: none;
+            color: #4caf50;
+            font-size: 0.95rem;
+            margin-top: 12px;
+            padding: 12px;
+            background: #243d24;
+            border-radius: 10px;
+        }
+        .feedback-thanks.show { display: block; }
+
+        /* Details */
         .details-toggle {
             background: none;
             border: 1px solid #4caf5050;
@@ -153,30 +214,16 @@ HTML_PAGE = """
         }
         .details-toggle:hover { background: #4caf5020; }
 
-        .details {
-            display: none;
-            margin-top: 16px;
-            text-align: left;
-            width: 100%;
-        }
+        .details { display: none; margin-top: 16px; text-align: left; width: 100%; }
         .details.show { display: block; }
         .details-title { font-size: 0.85rem; color: #888; margin-bottom: 8px; }
-
         .bar-container { max-width: 100%; }
         .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 3px; color: #ccc; }
         .bar-bg { background: #333; border-radius: 6px; height: 20px; overflow: hidden; margin-bottom: 8px; }
         .bar-fill { height: 100%; border-radius: 6px; background: #4caf50; transition: width 0.5s; }
-
-        .model-note {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #333;
-        }
+        .model-note { font-size: 0.8rem; color: #666; margin-top: 12px; padding-top: 12px; border-top: 1px solid #333; }
 
         .loading { color: #4caf50; font-size: 1.2rem; margin-top: 16px; display: none; }
-
         .bottom-links { margin-top: 32px; display: flex; gap: 24px; }
         .bottom-link { color: #4caf50; text-decoration: none; font-size: 0.9rem; }
         .bottom-link:hover { text-decoration: underline; }
@@ -192,13 +239,36 @@ HTML_PAGE = """
     </div>
     <input type="file" id="fileInput" accept="image/*">
 
-    <div class="loading" id="loading">Analyzing image...</div>
+    <div class="loading" id="loading">Analyzing image (removing background)...</div>
 
     <div class="result" id="result">
         <img class="preview-img" id="preview">
         <div class="result-class" id="resultClass"></div>
         <div class="result-confidence" id="resultConf"></div>
         <div class="bin-info" id="binInfo"></div>
+
+        <div class="feedback-section" id="feedbackSection">
+            <div class="feedback-question">Is this classification correct?</div>
+            <div class="feedback-btns">
+                <button class="btn-correct" onclick="sendFeedback(true)">✅ Correct</button>
+                <button class="btn-wrong" onclick="sendFeedback(false)">❌ Wrong</button>
+            </div>
+        </div>
+
+        <div class="correction-section" id="correctionSection">
+            <div class="correction-label">What is the correct category?</div>
+            <div class="correction-grid">
+                <button class="correction-btn" onclick="sendCorrection('cardboard')">📦 Cardboard</button>
+                <button class="correction-btn" onclick="sendCorrection('glass')">🫙 Glass</button>
+                <button class="correction-btn" onclick="sendCorrection('metal')">🥫 Metal</button>
+                <button class="correction-btn" onclick="sendCorrection('paper')">📄 Paper</button>
+                <button class="correction-btn" onclick="sendCorrection('plastic')">🧴 Plastic</button>
+                <button class="correction-btn" onclick="sendCorrection('trash')">🗑️ Trash</button>
+                <button class="correction-btn" onclick="sendCorrection('organic')">🥬 Organic</button>
+            </div>
+        </div>
+
+        <div class="feedback-thanks" id="feedbackThanks"></div>
 
         <button class="details-toggle" onclick="toggleDetails()">Show model details</button>
 
@@ -223,6 +293,8 @@ HTML_PAGE = """
             'trash': { icon: '🗑️', text: 'Dispose in the general waste bin. This item cannot be recycled.' },
             'organic': { icon: '🥬', text: 'Dispose in the organic/compost bin. Suitable for composting.' }
         };
+
+        var currentPredictionId = null;
 
         var uploadArea = document.getElementById('uploadArea');
         var fileInput = document.getElementById('fileInput');
@@ -257,6 +329,9 @@ HTML_PAGE = """
             result.classList.remove('show');
             document.getElementById('details').classList.remove('show');
             document.querySelector('.details-toggle').textContent = 'Show model details';
+            document.getElementById('feedbackSection').style.display = 'block';
+            document.getElementById('correctionSection').classList.remove('show');
+            document.getElementById('feedbackThanks').classList.remove('show');
 
             var formData = new FormData();
             formData.append('image', file);
@@ -264,6 +339,7 @@ HTML_PAGE = """
             fetch('/predict', { method: 'POST', body: formData })
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
+                    currentPredictionId = data.prediction_id;
                     var cls = data.final_class;
                     var info = BIN_INFO[cls] || BIN_INFO['trash'];
 
@@ -300,6 +376,39 @@ HTML_PAGE = """
                     loading.style.display = 'none';
                 });
         }
+
+        function sendFeedback(correct) {
+            if (correct) {
+                fetch('/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prediction_id: currentPredictionId, user_agrees: true })
+                });
+                document.getElementById('feedbackSection').style.display = 'none';
+                var thanks = document.getElementById('feedbackThanks');
+                thanks.textContent = '✅ Thank you for confirming!';
+                thanks.classList.add('show');
+            } else {
+                document.getElementById('feedbackSection').style.display = 'none';
+                document.getElementById('correctionSection').classList.add('show');
+            }
+        }
+
+        function sendCorrection(correctClass) {
+            fetch('/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prediction_id: currentPredictionId,
+                    user_agrees: false,
+                    user_correction: correctClass
+                })
+            });
+            document.getElementById('correctionSection').classList.remove('show');
+            var thanks = document.getElementById('feedbackThanks');
+            thanks.textContent = '🔄 Thank you! Your correction (' + correctClass + ') has been saved for model improvement.';
+            thanks.classList.add('show');
+        }
     </script>
 </body>
 </html>
@@ -328,10 +437,9 @@ STATS_PAGE = """
         .subtitle { color: #888; margin-bottom: 32px; }
         .back-link { color: #4caf50; text-decoration: none; margin-bottom: 24px; }
         .back-link:hover { text-decoration: underline; }
-
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 16px;
             max-width: 700px;
             width: 100%;
@@ -345,8 +453,7 @@ STATS_PAGE = """
         }
         .stat-number { font-size: 2rem; font-weight: bold; color: #4caf50; }
         .stat-label { color: #888; font-size: 0.85rem; margin-top: 4px; }
-
-        .chart-section {
+        .section {
             max-width: 700px;
             width: 100%;
             background: #1a2e1a;
@@ -354,20 +461,12 @@ STATS_PAGE = """
             padding: 24px;
             margin-bottom: 24px;
         }
-        .chart-title { font-size: 1.1rem; margin-bottom: 16px; color: #ccc; }
+        .section-title { font-size: 1.1rem; margin-bottom: 16px; color: #ccc; }
         .chart-bar-row { display: flex; align-items: center; margin-bottom: 10px; }
         .chart-bar-label { width: 100px; font-size: 0.9rem; color: #aaa; }
         .chart-bar-bg { flex: 1; background: #333; border-radius: 6px; height: 28px; overflow: hidden; }
-        .chart-bar-fill { height: 100%; border-radius: 6px; background: #4caf50; display: flex; align-items: center; padding-left: 8px; font-size: 0.8rem; }
-        .chart-bar-count { margin-left: 8px; font-size: 0.85rem; color: #aaa; }
-
-        .history-section {
-            max-width: 700px;
-            width: 100%;
-            background: #1a2e1a;
-            border-radius: 12px;
-            padding: 24px;
-        }
+        .chart-bar-fill { height: 100%; border-radius: 6px; background: #4caf50; }
+        .chart-bar-count { margin-left: 8px; font-size: 0.85rem; color: #aaa; min-width: 30px; }
         .history-item {
             display: flex;
             justify-content: space-between;
@@ -379,7 +478,9 @@ STATS_PAGE = """
         .history-class { color: #4caf50; font-weight: bold; text-transform: uppercase; }
         .history-time { color: #666; }
         .history-conf { color: #aaa; }
-
+        .history-feedback { font-size: 0.8rem; }
+        .fb-correct { color: #4caf50; }
+        .fb-wrong { color: #ef5350; }
         .no-data { color: #666; text-align: center; padding: 40px; }
     </style>
 </head>
@@ -387,7 +488,6 @@ STATS_PAGE = """
     <a class="back-link" href="/">← Back to classifier</a>
     <h1>📊 Classification Statistics</h1>
     <p class="subtitle">Data from all predictions</p>
-
     <div id="content"><div class="no-data">Loading...</div></div>
 
     <script>
@@ -403,10 +503,11 @@ STATS_PAGE = """
                 var html = '<div class="stats-grid">';
                 html += '<div class="stat-card"><div class="stat-number">' + data.total + '</div><div class="stat-label">Total predictions</div></div>';
                 html += '<div class="stat-card"><div class="stat-number">' + (data.avg_confidence * 100).toFixed(1) + '%</div><div class="stat-label">Avg confidence</div></div>';
-                html += '<div class="stat-card"><div class="stat-number">' + data.dual_model + '</div><div class="stat-label">Dual-model cases</div></div>';
+                html += '<div class="stat-card"><div class="stat-number">' + data.correct_count + '</div><div class="stat-label">Confirmed correct</div></div>';
+                html += '<div class="stat-card"><div class="stat-number">' + data.correction_count + '</div><div class="stat-label">User corrections</div></div>';
                 html += '</div>';
 
-                html += '<div class="chart-section"><div class="chart-title">Distribution by class</div>';
+                html += '<div class="section"><div class="section-title">Distribution by class</div>';
                 var maxCount = 0;
                 for (var c in data.distribution) { if (data.distribution[c] > maxCount) maxCount = data.distribution[c]; }
                 for (var cls in data.distribution) {
@@ -420,12 +521,16 @@ STATS_PAGE = """
                 }
                 html += '</div>';
 
-                html += '<div class="history-section"><div class="chart-title">Recent predictions</div>';
-                for (var i = 0; i < data.recent.length && i < 10; i++) {
+                html += '<div class="section"><div class="section-title">Recent predictions</div>';
+                for (var i = 0; i < data.recent.length && i < 15; i++) {
                     var p = data.recent[i];
                     var time = new Date(p.timestamp).toLocaleString();
+                    var fbHtml = '';
+                    if (p.user_agrees === true) fbHtml = '<span class="history-feedback fb-correct">✅</span>';
+                    else if (p.user_agrees === false) fbHtml = '<span class="history-feedback fb-wrong">❌ → ' + (p.user_correction || '?') + '</span>';
                     html += '<div class="history-item">';
                     html += '<span class="history-class">' + p.final_class + '</span>';
+                    html += fbHtml;
                     html += '<span class="history-conf">' + (p.confidence * 100).toFixed(1) + '%</span>';
                     html += '<span class="history-time">' + time + '</span>';
                     html += '</div>';
@@ -478,7 +583,7 @@ def predict():
                 confidence = pred_6_conf
                 note = "Confirmed as trash by both models"
 
-        supabase_insert({
+        prediction_id = supabase_insert({
             "final_class": final_class,
             "confidence": confidence,
             "model_6class_result": pred_6_class,
@@ -490,11 +595,26 @@ def predict():
             "final_class": final_class,
             "confidence": confidence,
             "note": note,
-            "all_predictions": all_preds
+            "all_predictions": all_preds,
+            "prediction_id": prediction_id
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    data = request.get_json()
+    pid = data.get("prediction_id")
+    if not pid:
+        return jsonify({"error": "No prediction_id"}), 400
+
+    update = {"user_agrees": data.get("user_agrees")}
+    if data.get("user_correction"):
+        update["user_correction"] = data["user_correction"]
+
+    supabase_update(pid, update)
+    return jsonify({"status": "ok"})
 
 @app.route("/stats")
 def stats():
@@ -504,31 +624,35 @@ def stats():
 def api_stats():
     rows = supabase_read()
     if not rows:
-        return jsonify({"total": 0})
+        return jsonify({"total": 0, "distribution": {}, "avg_confidence": 0, "correct_count": 0, "correction_count": 0, "recent": []})
 
     total = len(rows)
     distribution = {}
     conf_sum = 0
-    dual = 0
+    correct = 0
+    corrections = 0
 
     for r in rows:
         cls = r.get("final_class", "unknown")
         distribution[cls] = distribution.get(cls, 0) + 1
         conf_sum += r.get("confidence", 0)
-        if r.get("note", ""):
-            dual += 1
+        if r.get("user_agrees") is True:
+            correct += 1
+        elif r.get("user_agrees") is False:
+            corrections += 1
 
     return jsonify({
         "total": total,
         "distribution": distribution,
         "avg_confidence": conf_sum / total if total > 0 else 0,
-        "dual_model": dual,
-        "recent": rows[:10]
+        "correct_count": correct,
+        "correction_count": corrections,
+        "recent": rows[:15]
     })
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "models": ["6class", "2class"], "database": "supabase"})
+    return jsonify({"status": "ok", "models": ["6class", "2class"], "features": ["rembg", "feedback", "supabase"]})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

@@ -1,7 +1,7 @@
 # Waste Classification AI
 
 Web app that classifies waste photos into 7 categories using MobileNetV2 + transfer learning.
-Live demo: https://waste-classifier.onrender.com
+Live demo: [https://waste-classifier.onrender.com](https://waste-classifier-q817.onrender.com/)
 
 **Quick Overview**
 Upload a waste photo → AI classifies it (cardboard, glass, metal, paper, plastic, trash, organic)
@@ -11,18 +11,22 @@ Stats dashboard at `/stats`
 
 **Tech Stack**
 Flask · TensorFlow Lite · MobileNetV2 · Supabase · Render.com · Google Colab
-Run Locally
+
+**Run Locally**
 ```bash
 pip install -r requirements.txt
 python app.py
 # → http://localhost:8080
 ```
-API
+**API**
+
 `POST /predict` — classify image (multipart form, field: `image`)
 `POST /feedback` — submit correction (`{prediction_id, user_agrees, user_correction}`)
 `GET /stats` — statistics dashboard
 `GET /api/stats` — raw stats JSON
-Project Structure
+
+**Project Structure**
+
 ```
 ├── app.py                              # API + frontend
 ├── waste_classifier_6_classes.tflite   # 6-class model

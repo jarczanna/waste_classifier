@@ -1,17 +1,14 @@
 # Waste Classification AI
 
-A web application that classifies waste into categories using deep learning. Upload a photo of waste and the AI will tell you which bin it belongs to.
-
-**Live demo:** [waste-classifier on Render](https://waste-classifier-q817.onrender.com/)
-
-Waste Classification AI
 Web app that classifies waste photos into 7 categories using MobileNetV2 + transfer learning.
 Live demo: https://waste-classifier.onrender.com
+
 **Quick Overview**
 Upload a waste photo → AI classifies it (cardboard, glass, metal, paper, plastic, trash, organic)
 Dual-model system: 6-class model + 2-class model for organic detection
 User feedback loop for future model improvement
 Stats dashboard at `/stats`
+
 **Tech Stack**
 Flask · TensorFlow Lite · MobileNetV2 · Supabase · Render.com · Google Colab
 Run Locally

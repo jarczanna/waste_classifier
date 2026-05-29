@@ -524,7 +524,7 @@ STATS_PAGE = """
                 for (var i = 0; i < data.recent.length && i < 15; i++) {
                     var p = data.recent[i];
                     var time = new Date(p.timestamp).toLocaleString();
-                    var fbHtml = '';
+                    var fbHtml = '<span class="history-feedback">—</span>';
                     if (p.user_agrees === true) fbHtml = '<span class="history-feedback fb-correct">✅</span>';
                     else if (p.user_agrees === false) fbHtml = '<span class="history-feedback fb-wrong">❌ → ' + (p.user_correction || '?') + '</span>';
                     html += '<div class="history-item">';

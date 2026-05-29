@@ -461,11 +461,15 @@ STATS_PAGE = """
         .chart-bar-fill { height: 100%; border-radius: 6px; background: #4caf50; }
         .chart-bar-count { margin-left: 8px; font-size: 0.85rem; color: #aaa; min-width: 30px; }
         .history-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
+            display: grid;
+            grid-template-columns: 120px 120px 80px 1fr;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 8px;
             border-bottom: 1px solid #2a3e2a;
             font-size: 0.9rem;
+        }
+        .history-item:nth-child(even) { background: rgba(255,255,255,0.03); }
         }
         .history-item:last-child { border-bottom: none; }
         .history-class { color: #4caf50; font-weight: bold; text-transform: uppercase; }
@@ -515,6 +519,8 @@ STATS_PAGE = """
                 html += '</div>';
 
                 html += '<div class="section"><div class="section-title">Recent predictions</div>';
+                html += '<div class="history-item" style="color:#4caf50; font-weight:bold; border-bottom:2px solid #4caf50; font-size:0.8rem;">';
+                html += '<span>CLASS</span><span>FEEDBACK</span><span>CONF.</span><span>DATE</span></div>';
                 for (var i = 0; i < data.recent.length && i < 15; i++) {
                     var p = data.recent[i];
                     var time = new Date(p.timestamp).toLocaleString();

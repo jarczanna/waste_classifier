@@ -286,7 +286,7 @@ HTML_PAGE = """
             'trash': { icon: '🗑️', text: 'Dispose in the general waste bin. This item cannot be recycled.' },
             'organic': { icon: '🥬', text: 'Dispose in the organic/compost bin. Suitable for composting.' }
         };
-
+        var UNSURE_THRESHOLD = 0.3;
         var currentPredictionId = null;
 
         var uploadArea = document.getElementById('uploadArea');
@@ -336,7 +336,16 @@ HTML_PAGE = """
                     var cls = data.final_class;
                     var info = BIN_INFO[cls] || BIN_INFO['trash'];
 
-                    document.getElementById('resultClass').textContent = cls;
+                    if (data.confidence < UNSURE_THRESHOLD) {
+                    document.getElementById('resultClass').textContent = 'NOT SURE';
+                    document.getElementById('resultConf').textContent = 'Confidence too low: ' + (data.confidence * 100).toFixed(1) + '%';
+                    document.getElementById('binInfo').innerHTML = '<div class="bin-icon">🤔</div>Try a clearer photo with the object centered and good lighting.';
+                        } else
+                        {
+                    document.getElementById('resultClass').textContent = data.final_class;
+                    document.getElementById('resultConf').textContent = 'Confidence: ' + (data.confidence * 100).toFixed(1) + '%';
+                    document.getElementById('binInfo').innerHTML = '<div class="bin-icon">' + info.icon + '</div>' + info.text;
+                        }
                     document.getElementById('resultConf').textContent = 'Confidence: ' + (data.confidence * 100).toFixed(1) + '%';
                     document.getElementById('binInfo').innerHTML = '<div class="bin-icon">' + info.icon + '</div>' + info.text;
 

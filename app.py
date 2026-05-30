@@ -286,7 +286,7 @@ HTML_PAGE = """
             'trash': { icon: '🗑️', text: 'Dispose in the general waste bin. This item cannot be recycled.' },
             'organic': { icon: '🥬', text: 'Dispose in the organic/compost bin. Suitable for composting.' }
         };
-        var UNSURE_THRESHOLD = 0.3;
+        var UNSURE_THRESHOLD = 0.5;
         var currentPredictionId = null;
 
         var uploadArea = document.getElementById('uploadArea');

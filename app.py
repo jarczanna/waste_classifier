@@ -342,6 +342,7 @@ HTML_PAGE = """
                     document.getElementById('binInfo').innerHTML = '<div class="bin-icon">🤔</div>Try a clearer photo with the object centered and good lighting.';
                         } else
                         {
+                    document.getElementById('resultClass').textContent = data.final_class;
                     document.getElementById('resultConf').textContent = 'Confidence: ' + (data.confidence * 100).toFixed(1) + '%';
                     document.getElementById('binInfo').innerHTML = '<div class="bin-icon">' + info.icon + '</div>' + info.text;
                         }
